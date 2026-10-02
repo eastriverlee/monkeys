@@ -1875,6 +1875,30 @@ monkeys preview @production
 > SENTRY_DSN    ht...9 44
 > ```
 
+## update
+
+Install the latest release where the running `monkeys` is installed.
+
+```sh
+monkeys update
+monkeys upgrade
+```
+
+Both commands do the same thing and take no arguments. A Homebrew installation
+runs `brew upgrade eastriverlee/tap/monkeys` through its own Homebrew executable.
+A direct installation downloads the latest release for the machine and checks
+its published checksum before replacing the executable in its current directory.
+Symlinks are followed to the installed executable.
+
+The installer stages the new executable beside the old one and replaces it
+only after download, verification and extraction succeed. A missing checksum
+or a checksum mismatch stops the update. The update uses the installed binary's
+directory even when `INSTALL_DIRECTORY` is set, and selects the latest release
+even when `MONKEYS_VERSION` is set.
+
+The command needs network access and permission to write to the installation
+directory. Secrets and `.monkeys` files are left as they are.
+
 ## doctor
 
 Show what a profile has and lacks.

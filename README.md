@@ -95,6 +95,16 @@ cd monkeys
 make install
 ```
 
+### Update
+
+```sh
+monkeys update
+```
+
+`monkeys upgrade` does the same. Homebrew installs update through Homebrew;
+other installs download the latest release, verify its checksum and replace
+`monkeys` in its current directory.
+
 ### On Linux
 
 `monkeys` reaches the vault through `secret-tool`: install `libsecret-tools`

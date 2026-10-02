@@ -735,6 +735,7 @@ let rest = Array(arguments.dropFirst())
 
 do {
     switch command {
+    case "update", "upgrade": try runUpdate(rest)
     case "remember": try runSet(rest)
     case "drop": try runDrop(rest)
     case "list": try runList()

@@ -53,6 +53,10 @@ let commandSummaries = [
                    summary: "what each profile has and lacks"),
     CommandSummary(verb: "export", arguments: "[KEY[,KEY...]]",
                    summary: "vault lookups for a startup file"),
+    CommandSummary(verb: "update", arguments: "",
+                   summary: "install the latest release here"),
+    CommandSummary(verb: "upgrade", arguments: "",
+                   summary: "the same as update"),
 ]
 
 private func plainInvocation(_ command: CommandSummary) -> String {
