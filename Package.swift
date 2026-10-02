@@ -15,5 +15,6 @@ let package = Package(
                 .product(name: "_CryptoExtras", package: "swift-crypto"),
             ]
         ),
+        .testTarget(name: "MonkeysTests", dependencies: ["monkeys"]),
     ]
 )

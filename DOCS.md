@@ -554,7 +554,7 @@ The file is safe to send over whatever you already use, and the passphrase
 goes another way. `unpack` deletes the bundle once it has done its job; `pack`
 writes it to `/tmp`, outside any repository. [pack](#pack) and
 [unpack](#unpack) are the two halves. A bundle written before a
-`rename` still carries the old name, and unpacks to it.
+`move` still carries the old name, and unpacks to it.
 
 ### If one is committed
 
@@ -848,6 +848,7 @@ Remove a secret from the vault.
 monkeys forget [@profile] <KEY>
 monkeys forget @profile[,profile...]
 monkeys forget +namespace
+monkeys forget [@profile] --all --untracked
 ```
 
 Deletes one secret from the vault, after asking, because nothing else holds
@@ -915,6 +916,23 @@ Neither form touches `.monkeys`: a project still declares the
 profile, and `doctor` reports every key of it missing. A bare `@` is no profile
 and is refused, so the secrets with no profile go one key at a time.
 
+### --all --untracked
+
+Remove only the vault keys that `.monkeys` does not track in this namespace:
+
+```sh
+monkeys forget --all --untracked
+monkeys forget @test --all --untracked
+```
+
+Without `@profile`, this includes keys under profiles no longer declared in the
+file. With `@profile`, it selects only that profile. The command lists the keys
+and asks once before deleting them. Keys listed in `.monkeys`, public values,
+other namespaces and keys with no profile are preserved. The file stays as it
+is. Both flags are required, and a `.monkeys` file must be in reach.
+
+When the file has no namespace, only its declared profiles are checked.
+
 ## drop
 
 Remove a key from `.monkeys` and forget its secret.
@@ -969,21 +987,43 @@ monkeys drop @test
 
 Outside a project, with no file to edit, `drop` is `forget`.
 
-## rename
+## move
 
-Rename a profile or a namespace, in the vault and in `.monkeys`.
+Move a key, a profile or a namespace, in the vault and in `.monkeys`.
 
 ```sh
-monkeys rename @old @new
-monkeys rename +old +new
+monkeys move [@source] <KEY> [@target] [NEW_KEY]
+monkeys move @old @new
+monkeys move +old +new
 ```
 
-Moves every secret remembered under a profile to a new name, and inside a project
-rewrites the `@` lines of `.monkeys` to match, so the vault and the file change
+A key can move to another profile, take a new name, or both:
+
+```sh
+monkeys move OLD_KEY NEW_KEY
+monkeys move @test DATABASE_URL @production
+monkeys move @test OLD_KEY @production NEW_KEY
+monkeys move @ API_KEY @test
+monkeys move @test API_KEY @
+```
+
+The source defaults to the project's first profile, just as `remember` and
+`forget` do. Outside a project it defaults to the keys with no profile. Without a
+target profile, the key stays in its source profile. Without a new key name,
+it keeps its name. A bare `@` selects the keys with no profile on either side.
+A target key or public value that already exists is refused.
+
+The reachable project's declaration moves with the key. A public `KEY=value`
+entry can move between declared profiles too. A key in a block shared by several
+profiles must have that block split before it can move for one profile alone.
+Files in other projects are edited separately.
+
+Moving a profile transfers every secret under it to the new name. Inside a project
+it rewrites the `@` lines of `.monkeys` to match, so the vault and the file change
 together. Old name first, then new, the way `mv` reads:
 
 ```sh
-monkeys rename @staging @preview
+monkeys move @staging @preview
 ```
 
 > ```
@@ -992,7 +1032,7 @@ monkeys rename @staging @preview
 > ```
 
 Inside a project both names are the project's, and a prefix that fits only one
-declared profile is enough for the old one, `@stag`. From anywhere, the full name works: `monkeys rename @foo.staging
+declared profile is enough for the old one, `@stag`. From anywhere, the full name works: `monkeys move @foo.staging
 @foo.preview` moves the secrets and touches no file, since none is in reach.
 A project that still names the old profile then has `doctor` report it
 missing, until the file is edited or the name moved back.
@@ -1001,7 +1041,7 @@ A namespace is renamed the same way, for every profile under it, declared in
 the file or not, and the `+` line of the project's file with it:
 
 ```sh
-monkeys rename +foo +bar
+monkeys move +foo +bar
 ```
 
 > ```
@@ -1010,19 +1050,19 @@ monkeys rename +foo +bar
 > rewrote .monkeys: +foo is now +bar
 > ```
 
-A target that already holds a key is refused, so a rename never merges two
+A target that already holds a key is refused, so a move never merges two
 profiles:
 
 > ```
-> monkeys: @preview already holds DATABASE_URL; a rename never merges two profiles. To merge, fill @preview --with @staging, then forget what @staging still holds
+> monkeys: @preview already holds DATABASE_URL; a move never merges two profiles. To merge, fill @preview --with @staging, then forget what @staging still holds
 > ```
 
 The vault has no transaction, so the secrets move one key at a time, remembered
 under the new name and then removed from the old. At the first failure it
 stops, names the keys that moved and the one that did not, and leaves the file
-as it was; the file is rewritten only after the last key moved. A bare `@` is
-no profile and is neither a source nor a target; a key moves into or out of
-the keys with no profile through `fill` or `remember`. No secret is printed.
+as it was; the file is rewritten only after the last key moved. A bare `@` selects
+the keys with no profile when moving one key; it cannot name a whole profile
+to move. No secret is printed.
 
 ## run
 
@@ -1868,6 +1908,21 @@ A value line counts as present and is shown with its value:
 >   ✓ STRIPE_SECRET_KEY
 >   ✓ API_URL=http://localhost:8080
 > ```
+
+A vault key in the project's namespace that `.monkeys` does not track is shown
+with `-`, including keys under profiles no longer declared in the file:
+
+> ```
+> @test  default
+>   ✓ DATABASE_URL
+>   - OLD_API_KEY
+> @retired
+>   - SENTRY_DSN
+> ```
+
+These keys do not make `doctor` exit non-zero. `forget --all --untracked` removes
+only these keys after confirmation. Without a namespace, `doctor` checks for
+untracked keys only in the file's declared profiles.
 
 ### --short
 

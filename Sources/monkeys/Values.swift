@@ -143,3 +143,49 @@ func canRemoveKey(_ key: String, profile: String, in project: Project) throws ->
     try rejectingSharedBlock(location, key, profile, project)
     return true
 }
+
+struct KeyMoveEdit {
+    let path: String
+    let lines: [String]
+
+    func write() throws {
+        try writeLines(lines, to: path)
+    }
+}
+
+private func removingMovedKey(_ move: KeyMove, from lines: [String], in project: Project) throws -> [String] {
+    guard move.source.project?.path == project.path, let profile = move.source.profile else { return lines }
+    let location = locateKey(move.sourceKey, for: profile, in: lines, of: project)
+        ?? locate(move.sourceKey, for: profile, in: lines, of: project)
+    guard let location else { return lines }
+    try rejectingSharedBlock(location, move.sourceKey, profile, project)
+    var rewritten = lines
+    rewritten.remove(at: location.index)
+    return rewritten
+}
+
+private func addingMovedKey(_ move: KeyMove, value: String?, to lines: [String], in project: Project) -> [String] {
+    guard move.target.project?.path == project.path, let profile = move.target.profile,
+          project.profiles.contains(profile) else { return lines }
+    let entry = value.map { move.targetKey + "=" + $0 } ?? move.targetKey
+    return withKeys(lines, [profile], [entry], project.namespace)
+}
+
+func prepareKeyMoveEdits(_ move: KeyMove, value: String?) throws -> [KeyMoveEdit] {
+    if value != nil, move.target.projectKeys == nil {
+        throw StoreFailure.moveRefused("a public value needs a declared target profile in \(projectFileName)")
+    }
+    var projects: [Project] = []
+    for scope in [move.source, move.target] {
+        guard let project = scope.project, scope.projectKeys != nil,
+              !projects.contains(where: { $0.path == project.path }) else { continue }
+        projects.append(project)
+    }
+    return try projects.map { project in
+        let path = try project.writablePath()
+        let lines = try fileLines(at: path)
+        let removed = try removingMovedKey(move, from: lines, in: project)
+        let added = addingMovedKey(move, value: value, to: removed, in: project)
+        return KeyMoveEdit(path: path, lines: added)
+    }
+}

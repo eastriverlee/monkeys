@@ -1,6 +1,6 @@
 import Foundation
 
-private let renameForm = "monkeys rename @old @new, or monkeys rename +old +new"
+let moveForm = "monkeys move @old @new, monkeys move +old +new, or monkeys move [@source] <KEY> [@target] [NEW_KEY]"
 
 private func shownProfile(_ profile: String, in project: Project?) -> String {
     "@" + shortened(profile, in: project?.namespace)
@@ -40,7 +40,7 @@ private func moveKeys(_ keys: [String], from old: String, to new: String, projec
             moved.append(key)
         } catch {
             reportMoved(moved, from: old, to: new, project: project)
-            throw StoreFailure.renameRefused("stopped at \(key): \(error); the keys before it moved and the rest did not")
+            throw StoreFailure.moveRefused("stopped at \(key): \(error); the keys before it moved and the rest did not")
         }
     }
     reportMoved(moved, from: old, to: new, project: project)
@@ -86,30 +86,30 @@ private func fileCanName(_ profile: String, in project: Project) -> Bool {
     return profile.hasPrefix(namespace + ".")
 }
 
-private func renameProfile(_ oldArgument: String, _ newArgument: String) throws {
+func moveProfile(_ oldArgument: String, _ newArgument: String) throws {
     let (oldScope, _) = try resolveScope([oldArgument])
-    guard let old = oldScope.profile else { throw StoreFailure.badInvocation(renameForm) }
+    guard let old = oldScope.profile else { throw StoreFailure.badInvocation(moveForm) }
     let project = try locateProject()
     let newName = String(newArgument.dropFirst())
     guard isValidProfileName(newName) else { throw StoreFailure.invalidProfileName(newArgument) }
     let isDeclared = project?.profiles.contains(old) ?? false
     let new = fullName(newName, under: isDeclared ? project?.namespace : nil)
-    guard old != new else { throw StoreFailure.renameRefused("\(shownProfile(old, in: project)) is already its name") }
+    guard old != new else { throw StoreFailure.moveRefused("\(shownProfile(old, in: project)) is already its name") }
     let keys = try storedKeys(under: old)
     guard !keys.isEmpty || isDeclared else {
-        throw StoreFailure.renameRefused("nothing is remembered under \(shownProfile(old, in: project)), and no \(projectFileName) here names it")
+        throw StoreFailure.moveRefused("nothing is remembered under \(shownProfile(old, in: project)), and no \(projectFileName) here names it")
     }
     let taken = try storedKeys(under: new)
     guard taken.isEmpty else {
-        throw StoreFailure.renameRefused("\(shownProfile(new, in: project)) already holds \(taken.joined(separator: ", ")); a rename never merges two profiles. To merge, fill \(shownProfile(new, in: project)) --with \(shownProfile(old, in: project)), then forget what \(shownProfile(old, in: project)) still holds")
+        throw StoreFailure.moveRefused("\(shownProfile(new, in: project)) already holds \(taken.joined(separator: ", ")); a move never merges two profiles. To merge, fill \(shownProfile(new, in: project)) --with \(shownProfile(old, in: project)), then forget what \(shownProfile(old, in: project)) still holds")
     }
     if isDeclared, let project {
         _ = try project.writablePath()
         guard fileCanName(new, in: project) else {
-            throw StoreFailure.renameRefused("\(shownPath(of: project)) names profiles under +\(project.namespace ?? ""), so \(shownProfile(new, in: project)) cannot go in it; rename the namespace with monkeys rename +\(project.namespace ?? "") +other, or fill the other project's profile")
+            throw StoreFailure.moveRefused("\(shownPath(of: project)) names profiles under +\(project.namespace ?? ""), so \(shownProfile(new, in: project)) cannot go in it; move the namespace with monkeys move +\(project.namespace ?? "") +other, or fill the other project's profile")
         }
         guard !project.profiles.contains(new) else {
-            throw StoreFailure.renameRefused("\(shownProfile(new, in: project)) is already declared in \(shownPath(of: project))")
+            throw StoreFailure.moveRefused("\(shownProfile(new, in: project)) is already declared in \(shownPath(of: project))")
         }
     }
     try moveKeys(keys, from: old, to: new, project: project)
@@ -118,24 +118,24 @@ private func renameProfile(_ oldArgument: String, _ newArgument: String) throws 
     }
 }
 
-private func renameNamespace(_ oldArgument: String, _ newArgument: String) throws {
+func moveNamespace(_ oldArgument: String, _ newArgument: String) throws {
     let old = String(oldArgument.dropFirst())
     let new = String(newArgument.dropFirst())
     for name in [old, new] where !isValidProfileName(name) {
-        throw StoreFailure.renameRefused("+\(name) is not a namespace: letters, digits, _ - after the +, with a dot between parts")
+        throw StoreFailure.moveRefused("+\(name) is not a namespace: letters, digits, _ - after the +, with a dot between parts")
     }
-    guard old != new else { throw StoreFailure.renameRefused("+\(old) is already its name") }
+    guard old != new else { throw StoreFailure.moveRefused("+\(old) is already its name") }
     let project = try locateProject()
     let isDeclared = project?.namespace == old
     let stored = try secretStore.storedKeys()
     let profiles = storedProfiles(under: old, in: stored)
     guard !profiles.isEmpty || isDeclared else {
-        throw StoreFailure.renameRefused("nothing is remembered under +\(old), and no \(projectFileName) here names it")
+        throw StoreFailure.moveRefused("nothing is remembered under +\(old), and no \(projectFileName) here names it")
     }
     let taken = storedProfiles(under: new, in: stored)
     guard taken.isEmpty else {
         let listed = taken.map { "@" + $0 }.joined(separator: ", ")
-        throw StoreFailure.renameRefused("+\(new) already has \(listed); a rename never merges two namespaces. To merge, fill each profile of +\(new) --with the one of +\(old), then forget what +\(old) still holds")
+        throw StoreFailure.moveRefused("+\(new) already has \(listed); a move never merges two namespaces. To merge, fill each profile of +\(new) --with the one of +\(old), then forget what +\(old) still holds")
     }
     if isDeclared, let project { _ = try project.writablePath() }
     for profile in profiles {
@@ -145,15 +145,4 @@ private func renameNamespace(_ oldArgument: String, _ newArgument: String) throw
     if isDeclared, let project {
         try rewriteNamespaceLine(in: project, with: new)
     }
-}
-
-func runRename(_ arguments: [String]) throws {
-    guard arguments.count == 2 else { throw StoreFailure.badInvocation(renameForm) }
-    let (old, new) = (arguments[0], arguments[1])
-    if old.hasPrefix("+"), new.hasPrefix("+") { return try renameNamespace(old, new) }
-    guard old.hasPrefix("@"), new.hasPrefix("@") else { throw StoreFailure.badInvocation(renameForm) }
-    guard old != "@", new != "@" else {
-        throw StoreFailure.renameRefused("a bare @ is no profile, so it is neither a source nor a target here; a key moves into or out of it with fill or set")
-    }
-    try renameProfile(old, new)
 }

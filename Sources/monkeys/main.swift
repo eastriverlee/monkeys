@@ -220,6 +220,9 @@ func runSet(_ arguments: [String]) throws {
 }
 
 func runForget(_ arguments: [String]) throws {
+    if arguments.contains("--all") || arguments.contains("--untracked") {
+        return try runForgetUntracked(arguments)
+    }
     if arguments.count == 1, let only = arguments.first, only.hasPrefix("@") || only.hasPrefix("+") {
         return try runForgetProfiles(only)
     }
@@ -681,37 +684,15 @@ func reconcileValueLines(_ blocks: [ValueBlock], in directory: String) throws {
     }
 }
 
-private func mark(_ isStored: Bool) -> String {
-    isStored ? outputStyle("✓", .good) : outputStyle("✗", .bad)
-}
-
 func runDoctor(_ arguments: [String]) throws {
     let isShort = arguments == ["--short"]
     guard arguments.isEmpty || isShort else { throw StoreFailure.badInvocation("monkeys doctor [--short]") }
     guard let project = try locateProject() else {
         throw StoreFailure.badInvocation("monkeys doctor next to a \(projectFileName) file")
     }
-    let stored = Set(try secretStore.storedKeys())
-    var isComplete = true
-    for profile in project.profiles {
-        let keys = project.keys(for: profile)
-        let shown = project.shortName(profile)
-        let missing = keys.filter { !stored.contains(profile + "/" + $0) }
-        isComplete = isComplete && missing.isEmpty
-        if isShort {
-            if !missing.isEmpty { print("missing @\(shown): " + missing.joined(separator: ",")) }
-            continue
-        }
-        let label = profile == project.defaultProfile ? outputStyle("  default", .dim) : ""
-        print(outputStyle("@" + shown, .bold) + label)
-        for name in keys {
-            print("  " + mark(!missing.contains(name)) + " " + name)
-        }
-        for entry in project.values(for: profile) {
-            print("  " + mark(true) + " " + entry.key + outputStyle("=" + entry.value, .dim))
-        }
-    }
-    guard isComplete else { exit(1) }
+    let report = doctorReport(in: project, stored: try secretStore.storedKeys(), isShort: isShort)
+    for line in report.lines { print(line) }
+    if report.hasMissingKeys { exit(1) }
 }
 
 func runUnpack(_ arguments: [String]) throws {
@@ -767,7 +748,7 @@ do {
     case "export": try runExport(rest)
     case "doctor": try runDoctor(rest)
     case "fill": try runFill(rest)
-    case "rename": try runRename(rest)
+    case "move": try runMove(rest)
     case "help", "-h", "--help": print(usage)
     default:
         printToStandardError(messageStyle("unknown command:", .bad) + " \(command)")
