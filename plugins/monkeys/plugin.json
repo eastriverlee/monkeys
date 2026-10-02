@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "monkeys",
-  "version": "1.4.4",
+  "version": "1.5.0",
   "description": ".env you can hand to an LLM, or git add: secrets in your vault, keys in your repo, used one command at a time, never printed.",
   "author": {
     "name": "eastriverlee",
