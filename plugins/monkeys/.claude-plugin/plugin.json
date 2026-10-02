@@ -1,7 +1,7 @@
 {
   "name": "monkeys",
   "description": ".env you can hand to an LLM, or git add: secrets in your vault, keys in your repo, used one command at a time, never printed.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "license": "MIT",
   "author": {
     "name": "eastriverlee",
