@@ -24,13 +24,13 @@ nonisolated(unsafe) private var savedTerminal = termios()
 nonisolated(unsafe) private var terminalWasChanged = false
 nonisolated(unsafe) private var terminalMaster: Int32 = -1
 
-private func restoreTerminal() {
+func restoreTerminal() {
     guard terminalWasChanged else { return }
     tcsetattr(STDIN_FILENO, TCSANOW, &savedTerminal)
     terminalWasChanged = false
 }
 
-private func exitLike(_ status: Int32) -> Never {
+func exitLike(_ status: Int32) -> Never {
     restoreTerminal()
     let signalNumber = status & 0x7f
     if signalNumber == 0 { exit((status >> 8) & 0xff) }
@@ -133,7 +133,7 @@ private final class InputRelay: @unchecked Sendable {
     }
 }
 
-private func runThroughPipes(_ command: [String], _ values: [SpentValue]) -> Never {
+private func runThroughPipes(_ command: [String], _ values: [SpentValue]) -> Int32 {
     var standardOutput: [Int32] = [0, 0]
     var standardError: [Int32] = [0, 0]
     guard pipe(&standardOutput) == 0, pipe(&standardError) == 0 else { exitLike(1 << 8) }
@@ -157,7 +157,7 @@ private func runThroughPipes(_ command: [String], _ values: [SpentValue]) -> Nev
     ]
     for forwarder in forwarders { forwarder.start() }
     for forwarder in forwarders { forwarder.join() }
-    exitLike(waitFor(child))
+    return waitFor(child)
 }
 
 private func openTerminalPair() -> (master: Int32, slaveName: String)? {
@@ -187,7 +187,7 @@ private func enterRawMode() {
     }
 }
 
-private func runThroughTerminal(_ command: [String], _ values: [SpentValue]) -> Never {
+private func runThroughTerminal(_ command: [String], _ values: [SpentValue]) -> Int32 {
     guard let (master, slaveName) = openTerminalPair() else {
         _ = writeAll(STDERR_FILENO, Array("monkeys: cannot allocate a terminal: \(String(cString: strerror(errno)))\n".utf8))
         exit(1)
@@ -214,10 +214,10 @@ private func runThroughTerminal(_ command: [String], _ values: [SpentValue]) -> 
     output.start()
     input.start()
     output.join()
-    exitLike(waitFor(child))
+    return waitFor(child)
 }
 
-func runRedacted(_ command: [String], _ values: [SpentValue]) -> Never {
-    if isTerminal(STDOUT_FILENO) { runThroughTerminal(command, values) }
-    runThroughPipes(command, values)
+func runRedacted(_ command: [String], _ values: [SpentValue]) -> Int32 {
+    if isTerminal(STDOUT_FILENO) { return runThroughTerminal(command, values) }
+    return runThroughPipes(command, values)
 }

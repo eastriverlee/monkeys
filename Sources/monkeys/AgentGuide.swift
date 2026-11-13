@@ -75,15 +75,19 @@ them. --all uses everything, for when the keys are not worth working out:
 
   monkeys run --all ./hello.sh
 
-A key with no secret remembered stops the run before it starts, and says what to
-ask for:
+A key you named with no secret remembered stops the run before it starts, and
+says what to ask for:
 
   monkeys: SUPER_SECRET is not remembered yet
   nothing happened. a human types the secret into:
     monkeys remember SUPER_SECRET
   then try again.
 
-An agent passes that on. Remembering a secret is a human's job: an agent that
+A key the .monkeys file lists does not stop it, since one command rarely reads
+every key its project lists. run names the missing ones and goes ahead, and
+when the command then fails it adds the same remember lines.
+
+An agent passes those on. Remembering a secret is a human's job: an agent that
 types one puts it in its own context before it reaches the vault.
 
 To see what exists, read the keys with monkeys list, and their secrets' shape
