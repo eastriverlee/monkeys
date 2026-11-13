@@ -292,9 +292,9 @@ need `DATABASE_URL` and `STRIPE_SECRET_KEY`, and `production` also needs
 `SENTRY_DSN`. The default is still the first, `test`, so production is
 something you say.
 
-A secret missing in one profile stops only that profile, and only when it is
-used: `production` can be half filled while `test` runs. `doctor` shows the
-whole picture.
+A profile can be half filled: `run` goes ahead without a missing secret and
+names it, as [When a secret is missing](#when-a-secret-is-missing) shows.
+`doctor` shows the whole picture.
 
 ### The usual names
 
@@ -1134,8 +1134,8 @@ of the tool. Name the keys the command reads when you can.
 
 ### When a secret is missing
 
-A key you have not remembered a secret for stops the run before it starts, and
-says where it is missing from:
+A key you named and have not remembered a secret for stops the run before it
+starts:
 
 ```sh
 monkeys run OPENROUTER_API_KEY,SUPER_SECRET ./hello.sh
@@ -1148,18 +1148,26 @@ monkeys run OPENROUTER_API_KEY,SUPER_SECRET ./hello.sh
 > then try again.
 > ```
 
-Inside a project the message names the profile, and the `remember` it asks
-works from any directory:
+A key the project lists does not. A profile lists every key any of the
+project's commands reads, and one command rarely reads them all: a deploy has
+no use for the payment keys the server needs. So the command runs without the
+missing ones, after one line that names them:
 
 > ```
-> monkeys: STRIPE_SECRET_KEY is not remembered yet in @foo.test
-> nothing happened. a human types the secret into:
->   monkeys remember @foo.test STRIPE_SECRET_KEY
+> monkeys: STRIPE_SECRET_KEY is not remembered yet in @foo.production; the command runs without it
+> ```
+
+When the command then fails, the missing keys may be why, and `run` says what
+a human has to type:
+
+> ```
+> monkeys: the command failed without STRIPE_SECRET_KEY. if it needs it, a human types the secret into:
+>   monkeys remember @foo.production STRIPE_SECRET_KEY
 > then try again.
 > ```
 
-That message is written to be passed on. An agent that meets it knows which
-keys are missing, that nothing happened, and what a human has to type.
+Both messages are written to be passed on, and the `remember` they ask works
+from any directory. The command's exit status is kept.
 
 ### Where the variable is expanded
 

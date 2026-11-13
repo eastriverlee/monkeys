@@ -144,16 +144,24 @@ and needs a terminal, which is a human's run.
 
 ## When a key is missing
 
-`run` stops before anything happens and names what to ask for:
+A key the `.monkeys` file lists does not stop `run`. One command rarely reads
+every key its project lists, so `run` names the missing ones and goes ahead:
 
 ```
-monkeys: SUPER_SECRET is not remembered yet in @foo.test
-nothing happened. a human types the secret into:
+monkeys: SUPER_SECRET is not remembered yet in @foo.test; the command runs without it
+```
+
+When the command then fails, `run` names what to ask for:
+
+```
+monkeys: the command failed without SUPER_SECRET. if it needs it, a human types the secret into:
   monkeys remember @foo.test SUPER_SECRET
 then try again.
 ```
 
-Pass that on. `monkeys doctor --short` prints one `missing @profile: A,B` line
+A key named on the command line (`monkeys run SUPER_SECRET ...`) still stops
+the run before anything happens, with the same `remember` lines. Pass those
+on. `monkeys doctor --short` prints one `missing @profile: A,B` line
 per profile with a gap, nothing when there is none, and exits non-zero while
 any remains.
 
